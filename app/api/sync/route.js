@@ -5,18 +5,22 @@ import { runSync } from '@/lib/sync';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-function authorized(request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
+// Returns null if authorized, otherwise a reason (never reveals the secret).
+function authError(request) {
+  const secret = (process.env.CRON_SECRET || '').trim();
+  if (!secret) return 'CRON_SECRET is not set in this deployment. Add it in Vercel > Settings > Environment Variables (Production), then redeploy.';
   const header = request.headers.get('authorization');
-  const key = new URL(request.url).searchParams.get('key');
-  return header === `Bearer ${secret}` || key === secret;
+  const key = (new URL(request.url).searchParams.get('key') || '').trim();
+  if (header === `Bearer ${secret}` || key === secret) return null;
+  if (!key) return 'No ?key= in the URL.';
+  return `The key in the URL doesn't match CRON_SECRET (URL key is ${key.length} characters, CRON_SECRET is ${secret.length}). Check for typos, extra spaces, or symbols like & # + ? in the secret.`;
 }
 
 // Vercel Cron calls this daily. Run it by hand (e.g. the first time, to pull 90 days of history):
 //   https://<your-app>.vercel.app/api/sync?key=<CRON_SECRET>&days=90
 export async function GET(request) {
-  if (!authorized(request)) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  const reason = authError(request);
+  if (reason) return Response.json({ error: 'Unauthorized', reason }, { status: 401 });
 
   const days = Number(new URL(request.url).searchParams.get('days') || 3);
   try {
