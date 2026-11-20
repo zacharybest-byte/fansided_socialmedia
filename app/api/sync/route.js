@@ -24,7 +24,10 @@ export async function GET(request) {
 
   const days = Number(new URL(request.url).searchParams.get('days') || 3);
   try {
-    const client = createClient({ token: process.env.META_SYSTEM_USER_TOKEN });
+    // Tolerate copy/paste noise: whitespace, line breaks, wrapping quotes, a "Bearer " prefix.
+    const token = (process.env.META_SYSTEM_USER_TOKEN || '')
+      .replace(/\s+/g, '').replace(/^["']|["']$/g, '').replace(/^Bearer/i, '');
+    const client = createClient({ token });
     const result = await runSync({ client, store: postgresStore(), days, businessId: process.env.META_BUSINESS_ID || null });
     return Response.json(result);
   } catch (e) {
