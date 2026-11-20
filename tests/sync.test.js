@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createClient, endTimeToDate, toNumber } from '../lib/meta.js';
+import { createClient, endTimeToDate, toNumber, moneyToCents } from '../lib/meta.js';
+import { earningsCents } from '../lib/revenue.js';
 import { runSync } from '../lib/sync.js';
 
 // Fake Graph API: 250 pages (forces pagination), one deprecated metric, one page that errors.
@@ -30,6 +31,19 @@ function fakeGraph({ badMetric = 'page_video_view_time', failingPage = 'p7', thr
       if (throttleOnce && !throttled) { throttled = true; return json({ error: { code: 4, message: 'rate limit' } }, 400); }
       if (pageId === failingPage) return json({ error: { code: 190, message: 'token expired' } }, 400);
       const metrics = url.searchParams.get('metric').split(',');
+      const REV = ['monetization_approximate_earnings', 'content_monetization_earnings',
+        'page_daily_video_ad_break_earnings_by_crosspost_status', 'creator_monetization_qualified_views'];
+      if (metrics.length === 1 && REV.includes(metrics[0])) {
+        const n = Number(pageId.slice(1));
+        if (n % 3 === 0) return json({ error: { code: 200, message: 'Monetization metrics are only visible for Page admins with access to monetization insights.' } }, 400);
+        if (metrics[0] === 'page_daily_video_ad_break_earnings_by_crosspost_status') return json({ error: { code: 100, message: 'invalid metric' } }, 400);
+        const v = metrics[0] === 'monetization_approximate_earnings' ? 12.34
+          : metrics[0] === 'content_monetization_earnings' ? { reels: 5.5, videos: 1.25 } : 900;
+        return json({ data: [{ name: metrics[0], period: 'day', values: [
+          { end_time: '2026-11-19T08:00:00+0000', value: v },
+          { end_time: '2026-11-21T08:00:00+0000', value: v },
+        ] }] });
+      }
       if (metrics.includes(badMetric)) return json({ error: { code: 100, message: 'invalid metric' } }, 400);
       assert.equal(url.searchParams.get('access_token'), `tok${pageId.slice(1)}`);
       return json({
@@ -101,8 +115,31 @@ test('full sync over 250 pages', async () => {
   assert.equal(store.s.metrics.has('p3|2026-11-19|page_video_view_time'), false);
   assert.equal(store.s.errors.get('p7'), 'token expired');
   assert.match(store.s.runs[0].notes, /page_video_view_time/);
+
+  // revenue
+  assert.equal(store.s.metrics.get('p4|2026-11-18|rev_approximate_cents'), 1234);
+  assert.equal(store.s.metrics.get('p4|2026-11-18|rev_content_monetization_cents'), 675);
+  assert.equal(store.s.metrics.get('p4|2026-11-18|creator_monetization_qualified_views'), 900);
+  assert.equal(store.s.metrics.has('p4|2026-11-20|rev_approximate_cents'), false); // partial today
+  assert.equal(store.s.metrics.has('p3|2026-11-18|rev_approximate_cents'), false); // no access
+  assert.deepEqual(result.revenue.invalidMetrics, ['page_daily_video_ad_break_earnings_by_crosspost_status']);
+  assert.ok(result.revenue.noAccess.monetization_approximate_earnings >= 80);
+  assert.ok(result.revenue.pagesWithRevenue > 150);
+  assert.match(store.s.runs[0].notes, /only visible for Page admins/);
 });
 
 test('missing token fails fast', () => {
   assert.throws(() => createClient({ token: '' }), /META_SYSTEM_USER_TOKEN/);
+});
+
+test('money parsing', () => {
+  assert.equal(moneyToCents(12.345), 1235);
+  assert.equal(moneyToCents('3.10'), 310);
+  assert.equal(moneyToCents({ amount: 2.5, currency: 'USD' }), 250);
+  assert.equal(moneyToCents({ micro_amount: 1500000 }), 150);
+  assert.equal(moneyToCents({ crossposted: 1, original: { amount: 2 } }), 300);
+  assert.equal(moneyToCents('USD'), null);
+  assert.equal(earningsCents(500, 100, 100), 500);
+  assert.equal(earningsCents(null, 100, null), 100);
+  assert.equal(earningsCents(null, null, null), null);
 });

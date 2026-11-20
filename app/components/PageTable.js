@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { fmt, signed, pct, trendClass } from '@/lib/format';
+import { fmt, signed, pct, money, trendClass } from '@/lib/format';
 
 const COLUMNS = [
   { key: 'name', label: 'Page', type: 'text' },
@@ -14,6 +14,8 @@ const COLUMNS = [
   { key: 'engagementRate', label: 'Eng. rate', pct: true, digits: 2 },
   { key: 'videoViews', label: 'Video views (28d)' },
   { key: 'profileVisits', label: 'Profile visits (28d)' },
+  { key: 'earnings', label: 'Est. earnings (28d)', money: true },
+  { key: 'rpm', label: 'Earnings / 1K views', money: true, cents: true },
 ];
 
 export default function PageTable({ rows }) {
@@ -78,7 +80,7 @@ export default function PageTable({ rows }) {
                 </td>
                 {COLUMNS.slice(1).map((c) => {
                   const v = r[c.key];
-                  const text = c.signed ? signed(v) : c.pct ? pct(v, c.digits) : fmt(v);
+                  const text = c.money ? money(v, c.cents) : c.signed ? signed(v) : c.pct ? pct(v, c.digits) : fmt(v);
                   return <td key={c.key} className={c.signed || c.key === 'pct30' ? trendClass(v) : ''}>{text}</td>;
                 })}
               </tr>

@@ -1,5 +1,5 @@
 import { getPageRows, getNetworkSeries, getLastRun } from '@/lib/queries';
-import { fmt, compact, signed, pct, trendClass } from '@/lib/format';
+import { compact, signed, pct, money, trendClass } from '@/lib/format';
 import LineChart from './components/LineChart';
 import PageTable from './components/PageTable';
 
@@ -51,6 +51,7 @@ export default async function Home() {
   const change30 = sum(rows, 'change30');
   const views = sum(rows, 'views');
   const engagements = sum(rows, 'engagements');
+  const earnings = sum(rows, 'earnings');
   const follows = sum(rows, 'follows');
   const unfollows = sum(rows, 'unfollows');
   const net = () => {
@@ -76,6 +77,8 @@ export default async function Home() {
         <Tile label="Views (28 days)" value={compact(views)} />
         <Tile label="Engagements (28 days)" value={compact(engagements)}
           delta={views ? `${pct(engagements / views, 2)} of views` : null} />
+        <Tile label="Est. earnings (28 days)" value={money(earnings)}
+          delta={earnings !== null && views ? `${money(earnings / views * 1000, true)} per 1K views · ${rows.filter((r) => r.earnings).length} earning pages` : null} />
         <Tile label="New follows / unfollows (28d)" value={`${compact(follows)} / ${compact(unfollows)}`} />
       </div>
 
@@ -84,6 +87,7 @@ export default async function Home() {
         <div className="card"><h2>Net new followers per day</h2><LineChart data={net()} label="Net new followers per day" zeroBased /></div>
         <div className="card"><h2>Daily views</h2><LineChart data={series.metrics.page_media_view} label="Daily views" zeroBased /></div>
         <div className="card"><h2>Daily engagements</h2><LineChart data={series.metrics.page_post_engagements} label="Daily engagements" zeroBased /></div>
+        <div className="card"><h2>Daily estimated earnings (USD)</h2><LineChart data={series.earnings} label="Daily estimated earnings" zeroBased /></div>
       </div>
 
       <PageTable rows={rows} />

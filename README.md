@@ -2,7 +2,7 @@
 
 One dashboard for every FanSided Facebook Page. A daily job pulls follower counts and Page Insights for all Pages in the Business Manager, saves them to Postgres, and the dashboard shows network totals, trends, a sortable table of every Page, and a detail view per Page.
 
-**What it tracks (per Page, per day):** followers, page likes, new follows, unfollows, views, unique viewers, post engagements, post reactions, profile visits, CTA clicks, 3-second video views, 30-second video views, and video watch time.
+**What it tracks (per Page, per day):** followers, page likes, new follows, unfollows, views, unique viewers, post engagements, post reactions, profile visits, CTA clicks, 3-second video views, 30-second video views, video watch time, and **estimated earnings** (all monetization tools, Content Monetization, legacy in-stream ad breaks, and monetization-qualified views).
 
 **Stack:** Next.js on Vercel · Vercel Cron (daily) · Neon Postgres · Meta Graph API v26.0
 
@@ -15,7 +15,7 @@ One dashboard for every FanSided Facebook Page. A daily job pulls follower count
 1. Go to **developers.facebook.com → My Apps → Create App**. Choose the **Business** type and connect it to the FanSided business portfolio. Name it something like *FanSided Dashboard*.
 2. Go to **business.facebook.com → Settings → Users → System users → Add**. Name it `dashboard` and give it the **Employee** role.
 3. With that system user selected, click **Assign assets**:
-   - **Pages** → select all Pages → turn on **Insights** (view performance) access. No other permissions are needed.
+   - **Pages** → select all Pages → **Insights** is on by default; also turn on **Revenue** so earnings can be read. No other permissions are needed.
    - **Apps** → select the app from step 1 → **Develop app** access.
 4. Click **Generate new token**:
    - Pick the app from step 1.
@@ -71,6 +71,14 @@ It returns JSON: how many Pages synced, any failures, and any metrics Meta rejec
 - If Meta deprecates a metric, the sync skips it and lists it under **Last sync notes** on the dashboard. The rest of the data keeps flowing.
 - On the first run, follower history is backfilled from Meta's daily `page_follows` metric. After that, a real snapshot is saved every day.
 
+## Revenue data
+
+- Earnings are Meta's **estimates** in USD. Meta can revise them later, and the daily sync re-pulls the last 3 days to pick up those changes.
+- The headline **Est. earnings** figure uses Meta's all-tools `monetization_approximate_earnings` metric when a Page has it. Otherwise it adds up Content Monetization and in-stream ad-break earnings. It never adds the program figures on top of the all-tools figure, so nothing is counted twice.
+- Pages that aren't monetized, or where the token can't see revenue, show "—". The rest of their data still syncs.
+- **If every Page shows "—" for earnings:** open **Last sync notes** on the dashboard. If it says *"only visible for Page admins with access to monetization insights"*, Meta isn't giving revenue to the system user. Check that **Revenue** is switched on for the system user's Page access (step 1.3), then regenerate the token. If it still fails, Meta may require a person who is a Page admin. Ask Claude to add an admin-token fallback for revenue only.
+- The sync notes also include a sample of the raw earnings values Meta returned, so the parsing can be checked against real data.
+
 ## Local development
 
 ```bash
@@ -88,6 +96,7 @@ npm test                     # sync logic tests (no network needed)
 | `lib/sync.js` | Daily sync job, runs up to 8 Pages at a time |
 | `lib/db.js` | Postgres schema and writes |
 | `lib/queries.js` | Dashboard queries |
+| `lib/revenue.js` | Earnings roll-up rule |
 | `app/api/sync` | Cron endpoint |
 | `app/api/export` | CSV export |
 | `app/page.js` | Overview dashboard |

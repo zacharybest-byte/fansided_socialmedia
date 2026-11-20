@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getPage } from '@/lib/queries';
+import { getPage, earningsCents } from '@/lib/queries';
 import { fmt, compact, signed, pct, trendClass } from '@/lib/format';
 import LineChart from '../../components/LineChart';
 
@@ -31,6 +31,22 @@ export default async function PageDetail({ params }) {
   const unf = new Map((m.page_daily_unfollows_unique || []).map((d) => [d.date, d.value]));
   const net = (m.page_daily_follows_unique || []).map((d) => ({ date: d.date, value: d.value - (unf.get(d.date) || 0) }));
 
+  // Daily earnings in dollars (approximate all-tools figure, else program metrics).
+  const byDate = new Map();
+  for (const [key, field] of [['rev_approximate_cents', 'a'], ['rev_content_monetization_cents', 'c'], ['rev_video_ad_break_cents', 'b']]) {
+    for (const d of m[key] || []) {
+      const row = byDate.get(d.date) || { a: null, c: null, b: null };
+      row[field] = d.value;
+      byDate.set(d.date, row);
+    }
+  }
+  const earnings = [...byDate].sort(([x], [y]) => x.localeCompare(y))
+    .map(([date, r]) => ({ date, value: (earningsCents(r.a, r.c, r.b) || 0) / 100 }));
+  const earnings28 = earnings.length ? earnings.slice(-28).reduce((a, d) => a + d.value, 0) : null;
+  const money = (n) => (n === null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
+  const cm28 = total(m.rev_content_monetization_cents);
+  const qv28 = total(m.creator_monetization_qualified_views);
+
   const charts = [
     ['Followers', followers, false],
     ['Net new followers per day', net, true],
@@ -40,6 +56,8 @@ export default async function PageDetail({ params }) {
     ['Daily post reactions', m.page_actions_post_reactions_total, true],
     ['Daily video views (3s+)', m.page_video_views, true],
     ['Daily profile visits', m.page_views_total, true],
+    ['Daily estimated earnings (USD)', earnings, true],
+    ['Daily monetization-qualified views', m.creator_monetization_qualified_views, true],
   ];
 
   return (
@@ -64,6 +82,14 @@ export default async function PageDetail({ params }) {
         <div className="tile">
           <div className="label">Engagements (28d)</div><div className="value">{compact(engagements)}</div>
           {views ? <div className="delta">{pct(engagements / views, 2)} of views</div> : null}
+        </div>
+        <div className="tile">
+          <div className="label">Est. earnings (28d)</div><div className="value">{money(earnings28)}</div>
+          {earnings28 !== null && views ? <div className="delta">{money(earnings28 / views * 1000)} per 1K views</div> : null}
+        </div>
+        <div className="tile">
+          <div className="label">Content Monetization (28d)</div><div className="value">{money(cm28 === null ? null : cm28 / 100)}</div>
+          {qv28 !== null ? <div className="delta">{compact(qv28)} qualified views</div> : null}
         </div>
       </div>
 

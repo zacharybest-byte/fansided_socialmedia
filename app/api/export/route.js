@@ -8,6 +8,8 @@ const COLS = [
   ['30-day % change', 'pct30'], ['Views (28d)', 'views'], ['Unique viewers (28d, summed daily)', 'viewers'],
   ['Engagements (28d)', 'engagements'], ['Engagement rate', 'engagementRate'], ['Video views (28d)', 'videoViews'],
   ['New follows (28d)', 'follows'], ['Unfollows (28d)', 'unfollows'], ['Profile visits (28d)', 'profileVisits'],
+  ['Est. earnings USD (28d)', 'earnings'], ['Content Monetization USD (28d)', 'contentMonetization'],
+  ['Earnings per 1K views', 'rpm'], ['Monetization-qualified views (28d)', 'qualifiedViews'],
 ];
 
 const cell = (v) => {
