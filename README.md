@@ -13,8 +13,9 @@ One dashboard for every FanSided Facebook Page. A daily job pulls follower count
 ### 1. Create a Meta app and a system user token
 
 1. Go to **developers.facebook.com → My Apps → Create App**. Choose the **Business** type and connect it to the FanSided business portfolio. Name it something like *FanSided Dashboard*.
-2. Go to **business.facebook.com → Settings → Users → System users → Add**. Name it `dashboard` and give it the **Employee** role.
-3. With that system user selected, click **Assign assets**:
+2. Go to **business.facebook.com → Settings → Users → System users → Add**. Name it `dashboard` and give it the **Admin** role.
+   With the Admin role, the system user can already read every Page the business owns. You don't need to assign Pages one by one. Set `META_BUSINESS_ID` in Vercel (step 2) to your Business ID, which is under **Settings → Business info**.
+3. *(Only if you use the Employee role instead.)* With that system user selected, click **Assign assets**:
    - **Pages** → select all Pages → **Insights** is on by default; also turn on **Revenue** so earnings can be read. No other permissions are needed.
    - **Apps** → select the app from step 1 → **Develop app** access.
 4. Click **Generate new token**:
@@ -23,7 +24,9 @@ One dashboard for every FanSided Facebook Page. A daily job pulls follower count
    - Check these permissions: `pages_show_list`, `pages_read_engagement`, `read_insights`, `business_management`.
    - Copy the token. You'll paste it into Vercel in step 2. Don't commit it to GitHub.
 
-> **New Pages later?** Assign them to the `dashboard` system user (step 3). The next daily sync will pick them up. You don't need a new token.
+> **New Pages later?** With an Admin system user, any Page added to the business is picked up by the next daily sync automatically. With an Employee system user, assign the new Page to it first. Either way, you don't need a new token.
+>
+> **Security note:** the token only carries the read permissions listed below, so the dashboard can't post, message or change anything, even though the system user itself is an Admin. Keep the token in Vercel only.
 
 ### 2. Deploy on Vercel
 
@@ -34,6 +37,7 @@ One dashboard for every FanSided Facebook Page. A daily job pulls follower count
 | Name | Value |
 |---|---|
 | `META_SYSTEM_USER_TOKEN` | the token from step 1 |
+| `META_BUSINESS_ID` | your Business Manager ID (needed with an Admin system user) |
 | `CRON_SECRET` | any long random string, e.g. from `openssl rand -hex 32` |
 | `DASHBOARD_USER` | login username for the dashboard |
 | `DASHBOARD_PASSWORD` | login password for the dashboard |

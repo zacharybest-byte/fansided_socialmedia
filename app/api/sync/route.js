@@ -21,7 +21,7 @@ export async function GET(request) {
   const days = Number(new URL(request.url).searchParams.get('days') || 3);
   try {
     const client = createClient({ token: process.env.META_SYSTEM_USER_TOKEN });
-    const result = await runSync({ client, store: postgresStore(), days });
+    const result = await runSync({ client, store: postgresStore(), days, businessId: process.env.META_BUSINESS_ID || null });
     return Response.json(result);
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });

@@ -25,6 +25,17 @@ function fakeGraph({ badMetric = 'page_video_view_time', failingPage = 'p7', thr
         ? `https://graph.test/v26.0/me/accounts?after=${after + 100}&access_token=x` : undefined;
       return json({ data: slice, paging: next ? { next } : {} });
     }
+    if (url.pathname.endsWith('/biz1/owned_pages')) {
+      return json({ data: [pages[0], ...Array.from({ length: 30 }, (_, i) => ({ id: `q${i}`, name: `Biz Page ${i}`, followers_count: 50 }))] });
+    }
+    if (url.pathname.endsWith('/biz1/client_pages')) return json({ error: { code: 10, message: 'no perm' } }, 400);
+    const tokenMatch = url.pathname.match(/\/v26\.0\/(q\d+)$/);
+    if (tokenMatch) return json({ id: tokenMatch[1], access_token: `qtok-${tokenMatch[1]}` });
+    const qm = url.pathname.match(/\/v26\.0\/(q\d+)\/insights$/);
+    if (qm) {
+      assert.equal(url.searchParams.get('access_token'), `qtok-${qm[1]}`);
+      return json({ data: [] });
+    }
     const m = url.pathname.match(/\/v26\.0\/(p\d+)\/insights$/);
     if (m) {
       const pageId = m[1];
@@ -142,4 +153,14 @@ test('money parsing', () => {
   assert.equal(earningsCents(500, 100, 100), 500);
   assert.equal(earningsCents(null, 100, null), 100);
   assert.equal(earningsCents(null, null, null), null);
+});
+
+test('business ID adds every owned page without assigning', async () => {
+  const { fetchImpl } = fakeGraph({ throttleOnce: false });
+  const client = createClient({ token: 'sys', fetchImpl, base: 'https://graph.test', version: 'v26.0', retryDelayMs: 1 });
+  const store = fakeStore();
+  const result = await runSync({ client, store, days: 3, businessId: 'biz1', now: new Date('2026-11-20T11:17:00Z') });
+  assert.equal(result.total, 280); // 250 assigned + 30 extra owned (1 overlap)
+  assert.equal(store.s.pages.get('q5').name, 'Biz Page 5');
+  assert.deepEqual(store.s.snapshots.get('q5|2026-11-20'), { followers: 50, fans: null });
 });
