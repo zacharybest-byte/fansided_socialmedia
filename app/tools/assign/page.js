@@ -89,6 +89,10 @@ export default function AssignTool() {
         } catch (e) {
           failed.push(p);
           add(`✗ ${p.name}: ${e.message}`);
+          if (/code 368/.test(e.message)) {
+            add('Meta has temporarily rate-limited this Facebook account. Stopping so the block isn\'t extended. Try again in about 24 hours, or have another business admin run this with their own token.');
+            break;
+          }
         }
         await new Promise((res) => setTimeout(res, 150));
       }
