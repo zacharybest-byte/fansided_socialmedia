@@ -22,7 +22,7 @@ async function graph(path, token, { method = 'GET', params = {} } = {}) {
 export default function AssignTool() {
   const [token, setToken] = useState('');
   const [biz, setBiz] = useState('');
-  const [sysUser, setSysUser] = useState('');
+  const [sysUser, setSysUser] = useState('fssocial_dashbzbnew');
   const [limit, setLimit] = useState('1');
   const [log, setLog] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -32,9 +32,31 @@ export default function AssignTool() {
 
   async function run() {
     setBusy(true); setLog([]); setStats(null);
-    const t = token.trim(), b = biz.replace(/\D/g, ''), u = sysUser.replace(/\D/g, '');
-    if (!/^\d{6,}$/.test(u) || !/^\d{6,}$/.test(b)) {
-      add('Business ID and System user ID must be the long numbers (digits only), not names.');
+    const t = token.trim(), b = biz.replace(/\D/g, ''), wanted = sysUser.trim();
+    if (!/^\d{6,}$/.test(b)) {
+      add('Business ID must be the long number (digits only).');
+      setBusy(false);
+      return;
+    }
+    let u;
+    try {
+      // Meta needs the system user's app-scoped ID, which differs from the ID shown in Business Settings.
+      // Look it up from the business's system user list (IDs there are scoped to the token's app).
+      add('Looking up the system user…');
+      const list = [];
+      let sr = await graph(`${b}/system_users`, t, { params: { fields: 'id,name', limit: '100' } });
+      list.push(...sr.data);
+      while (sr.paging?.next) { sr = await graph(sr.paging.next, t); list.push(...sr.data); }
+      const match = list.find((x) => x.name.toLowerCase() === wanted.toLowerCase() || x.id === wanted.replace(/\D/g, ''));
+      if (!match) {
+        add(`No system user named "${wanted}". System users in this business: ${list.map((x) => x.name).join(', ') || '(none visible)'}`);
+        setBusy(false);
+        return;
+      }
+      u = match.id;
+      add(`Found ${match.name} (app-scoped ID ${u}).`);
+    } catch (e) {
+      add(`Couldn't list system users: ${e.message}`);
       setBusy(false);
       return;
     }
@@ -94,7 +116,7 @@ export default function AssignTool() {
         <label>Business ID (Business Settings → Business info)
           <input style={field} value={biz} onChange={(e) => setBiz(e.target.value)} />
         </label>
-        <label>System user ID (System users → fssocial_dashbzbnew, number under the name)
+        <label>System user name (e.g. fssocial_dashbzbnew)
           <input style={field} value={sysUser} onChange={(e) => setSysUser(e.target.value)} />
         </label>
         <label>How many to assign this run
