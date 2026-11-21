@@ -32,7 +32,12 @@ export default function AssignTool() {
 
   async function run() {
     setBusy(true); setLog([]); setStats(null);
-    const t = token.trim(), b = biz.trim(), u = sysUser.trim();
+    const t = token.trim(), b = biz.replace(/\D/g, ''), u = sysUser.replace(/\D/g, '');
+    if (!/^\d{6,}$/.test(u) || !/^\d{6,}$/.test(b)) {
+      add('Business ID and System user ID must be the long numbers (digits only), not names.');
+      setBusy(false);
+      return;
+    }
     try {
       add('Loading Pages owned by the business…');
       const pages = [];
